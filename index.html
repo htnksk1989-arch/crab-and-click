@@ -283,7 +283,7 @@
     }
     .overlay.gameover p { color: #ffaaaa !important; margin: 0 0 20px 0; font-size: 14px; line-height: 1.6;}
 
-    /* 完全勝利時のスタイル（テキスト主体に変更） */
+    /* 完全勝利時のスタイル */
     .overlay.victory {
         background: rgba(10, 5, 0, 0.95);
         border: 2px solid var(--gold);
@@ -473,8 +473,8 @@
   // ====== Messages ======
   const msg = {
     success: ["せいぜい頑張れ。", "運がいいだけだ。", "調子に乗るなよ。"],
-    fail: ["ほらみたことか", "スクショする‥？w", "カニに敬意払ってる？"],
-    clear: ["…で？", "時間の無駄だったな。", "次のカニが待っている(笑)"]
+    fail: ["どしたん？", "スクショする？", "カニに敬意払ってる？"],
+    clear: ["…で？", "運がいいんだね", "次のカニが待っている(笑)"]
   };
 
   // ====== Functions ======
@@ -536,12 +536,12 @@
 
     resultContent.innerHTML = `
         <h2>YOU DIED</h2>
-        <p>5回も負けたのか？<br>カニを喰う資格はない。</p>
+        <p>5回も負けたのか？もはや才能だ。<br>こんなゲームで死ぬなよ。</p>
         <button class="overlay-back-btn" style="background:#8a0b0b; color:#fff; border:1px solid #ff4d4d;" onclick="resetToTitle()">タイトルへ戻る</button>
     `;
   }
 
-  // 完全勝利画面（テキスト主体＋DLボタンに変更）
+  // 完全勝利画面
   function showVictory() {
     stopAudio(bgmGame);
     pulse([100, 50, 100, 50, 100, 50, 500]);
@@ -628,11 +628,10 @@
       // 正解
       pulse(8); piece.classList.add("ok"); 
       nextIndex++; 
-      // ★修正: ここではstreakを増やさない (タップ数カウント廃止)
       
       if(nextIndex >= PIECES){
         // 全カニ剥き完了（ラウンドクリア）
-        streak++; // ★修正: ここで初めて増やす
+        streak++; 
         totalClears++;
         updateStats();
 
@@ -651,7 +650,7 @@
     } else {
       // 不正解
       pulse(100); piece.classList.add("bad"); 
-      streak = 0; // ミス時は0に戻す
+      // streak = 0; // ★修正: ミスしてもクリア数は維持する
       updateStats();
 
       if(mode === "HARD") {

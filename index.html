@@ -77,6 +77,7 @@
         box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         border: 1px solid rgba(255, 140, 0, 0.1);
         background: #000;
+        position: relative;
     }
     
     .title-main-art {
@@ -85,6 +86,14 @@
         object-fit: cover;
         object-position: center top;
         display: block;
+    }
+    /* 画像エラー時のフォールバック */
+    .title-main-art:after {
+        content: "CRAB & CLICK";
+        position: absolute; top:0; left:0; width:100%; height:100%;
+        background: #1a120a;
+        display: flex; align-items: center; justify-content: center;
+        color: var(--accent); font-size: 24px; font-weight: bold;
     }
 
     .game-subtitle {
@@ -191,6 +200,8 @@
     .btn.secondary{ background: transparent; border-color: rgba(255,255,255,0.1); color: var(--muted); }
 
     .stat{ display:grid; grid-template-columns: 1fr 1fr 1fr; gap:8px; margin-top:auto; }
+    @media (min-width: 821px) { .stat { grid-template-columns: 1fr 1fr; } }
+
     .card{ background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.05); border-radius:8px; padding:8px 10px; text-align: center;}
     .label{ font-size:9px; color:var(--muted); text-transform: uppercase; }
     .value{ font-size:16px; font-weight:700; font-variant-numeric: tabular-nums; }
@@ -274,6 +285,7 @@
         box-shadow: 0 4px 20px rgba(0,0,0,0.5);
         border: 1px solid rgba(255,255,255,0.2);
         animation: fadeIn 1s ease-out;
+        background: #000;
     }
     
     .overlay.fadeout { opacity: 0; pointer-events: none; }
@@ -294,12 +306,16 @@
     }
     #manualStartBtn:active { transform: scale(0.95); background: rgba(255, 140, 0, 0.3); }
     
+    /* 修正: タイトル戻るボタンを常時表示用に調整 */
     #backToStartBtn {
-        position: absolute; top: 10px; left: 10px; z-index: 110;
-        padding: 8px 12px; font-size: 12px; border-radius: 4px;
-        background: rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.2);
+        position: absolute; top: 12px; left: 12px; z-index: 200;
+        padding: 6px 14px; font-size: 12px; border-radius: 4px;
+        background: rgba(0,0,0,0.8); border: 1px solid rgba(255,255,255,0.2);
         color: var(--muted); cursor: pointer; font-family: serif;
+        backdrop-filter: blur(4px);
+        transition: opacity 0.2s;
     }
+    #backToStartBtn:hover { opacity: 0.8; background: rgba(50,40,30,0.9); }
 
     .overlay-back-btn {
         margin-top:30px; padding:12px 24px; border-radius:4px; font-family:serif; font-weight:bold; cursor:pointer;
@@ -329,7 +345,7 @@
   <div class="wrap">
     <section id="startScreen">
       <div class="title-image-container">
-          <img src="title.png" alt="CRAB & CLICK Title Art" class="title-main-art">
+          <img src="title.png" alt="CRAB & CLICK Title Art" class="title-main-art" onerror="this.style.display='none'">
       </div>
       <p class="game-subtitle">殻むき地獄</p>
       <div class="rule-box">
@@ -346,7 +362,7 @@
       </div>
       <div class="start-buttons">
         <button class="btn primary" id="startHardBtn">契約を結ぶ (本番)</button>
-        <button class="btn secondary" id="startPracticeBtn">素振り (時間の無駄)</button>
+        <button class="btn secondary" id="startPracticeBtn">仮契約 (練習)</button>
       </div>
     </section>
 
@@ -356,10 +372,6 @@
             <h2 class="mini-title">🦀 CRAB & CLICK</h2>
         </div>
         <div class="stat">
-          <div class="card">
-            <div class="label">徒労感</div>
-            <div class="value"><span id="progress">0</span>/<span id="total">9</span></div>
-          </div>
           <div class="card">
             <div class="label">まぐれ</div>
             <div class="value" id="streak">0</div>
@@ -371,9 +383,10 @@
         </div>
       </section>
       <section class="main">
+        <button id="backToStartBtn">← タイトルへ</button>
+
         <div class="board hidden" id="board"></div>
         <div class="overlay" id="overlay">
-          <button id="backToStartBtn">← タイトルへ</button>
           
           <div id="memoContent">
               <h2 style="color:var(--accent); margin-bottom:10px; font-family: serif;">記憶せよ。</h2>
@@ -411,7 +424,6 @@
   // ====== State ======
   let order = [];
   let nextIndex = 0;
-  let deaths = 0;
   let streak = 0;
   let totalDeaths = 0;
   let totalClears = 0;
@@ -438,12 +450,9 @@
   bgmGame.volume = 0.4;
 
   const els = {
-    progress: document.getElementById("progress"),
-    total: document.getElementById("total"),
     deaths: document.getElementById("deaths"),
     streak: document.getElementById("streak"),
   };
-  els.total.textContent = PIECES;
 
   // ====== Messages ======
   const msg = {
@@ -481,10 +490,8 @@
     showToast.timer = setTimeout(() => toast.classList.remove("show"), duration);
   }
   
-  // ★修正: 死亡数の表示を「累計(totalDeaths)」に変更
   function updateStats(){
-    els.progress.textContent = nextIndex;
-    els.deaths.textContent = totalDeaths; // ここを修正
+    els.deaths.textContent = totalDeaths;
     els.streak.textContent = streak;
   }
 
@@ -507,14 +514,14 @@
     overlay.classList.add("gameover");
     overlay.classList.remove("fadeout");
     overlay.style.display = 'flex';
-    backToStartBtn.style.display = 'none';
+    backToStartBtn.style.display = 'none'; // リザルトではボタンを隠す
     memoContent.style.display = 'none';
     resultContent.style.display = 'block';
 
     resultContent.innerHTML = `
         <h2>YOU DIED</h2>
         <p>5回も負けたのか？もはや才能だ。<br>こんなゲームで死ぬなよ。</p>
-        <button class="overlay-back-btn" style="background:#8a0b0b; color:#fff; border:1px solid #ff4d4d;" onclick="resetToTitle('gameover')">タイトルへ戻る</button>
+        <button class="overlay-back-btn" style="background:#8a0b0b; color:#fff; border:1px solid #ff4d4d;" onclick="resetToTitle()">タイトルへ戻る</button>
     `;
   }
 
@@ -526,20 +533,24 @@
     overlay.classList.add("victory");
     overlay.classList.remove("fadeout");
     overlay.style.display = 'flex';
-    backToStartBtn.style.display = 'none';
+    backToStartBtn.style.display = 'none'; // リザルトではボタンを隠す
     memoContent.style.display = 'none';
     resultContent.style.display = 'block';
 
     resultContent.innerHTML = `
-        <img src="victory.png" alt="Victory" class="victory-img">
-        <button class="overlay-back-btn" style="background:var(--accent); color:#000; border:none; margin-top:10px;" onclick="resetToTitle('victory')">タイトルへ戻る</button>
+        <img src="victory.png" alt="Victory" class="victory-img" onerror="this.style.display='none'">
+        <button class="overlay-back-btn" style="background:var(--accent); color:#000; border:none; margin-top:10px;" onclick="resetToTitle()">タイトルへ戻る</button>
     `;
   }
 
-  window.resetToTitle = (overlayClass) => {
-      overlay.classList.remove(overlayClass);
+  window.resetToTitle = () => {
+      // 全てのオーバーレイ状態をリセット
+      overlay.classList.remove("gameover", "victory", "fadeout");
+      overlay.style.display = 'none';
       totalDeaths = 0;
       totalClears = 0;
+      streak = 0;
+      updateStats();
       showStartScreen();
   };
 
@@ -609,11 +620,13 @@
       }
     } else {
       // 不正解
-      pulse(100); piece.classList.add("bad"); deaths++; streak = 0; updateStats();
+      pulse(100); piece.classList.add("bad"); 
+      streak = 0; // ミス時は0に戻す
+      updateStats();
 
       if(mode === "HARD") {
-          totalDeaths++; // 累計死亡を加算
-          updateStats(); // 即座に表示反映
+          totalDeaths++;
+          updateStats();
           if(totalDeaths >= MAX_TOTAL_DEATHS) {
               showGameOver();
               return;
@@ -625,15 +638,14 @@
 
   function endGame(cleared){
     isLocked = true;
-    setTimeout(() => { startGame(mode); }, cleared ? 2500 : 2000);
+    setTimeout(() => { startGame(); }, cleared ? 2500 : 2000); // モード引数なし＝継続
   }
 
   // 記憶画面の表示セットアップ
   function setupMemoScreen(timeLeftText, showManualBtn) {
-    overlay.classList.remove("fadeout");
-    overlay.classList.remove("gameover", "victory");
+    overlay.classList.remove("fadeout", "gameover", "victory");
     overlay.style.display = 'flex';
-    backToStartBtn.style.display = 'block';
+    backToStartBtn.style.display = 'block'; // プレイ中の戻るボタンは表示
     
     memoContent.style.display = 'block';
     resultContent.style.display = 'none';
@@ -644,7 +656,12 @@
 
   function startGame(selectedMode){
     switchToGameBgm();
-    mode = selectedMode; nextIndex = 0; isLocked = true; updateStats();
+    if(selectedMode) mode = selectedMode; // モード指定がある場合のみ更新
+    
+    nextIndex = 0;
+    // streakリセットは削除。継続させる。
+    isLocked = true;
+    updateStats();
     showGameScreen();
     setupBoard();
     
@@ -670,7 +687,13 @@
   function finishMemorize(){
     board.classList.add("hidden");
     overlay.classList.add("fadeout");
-    setTimeout(() => overlay.style.display = 'none', 300);
+    setTimeout(() => {
+        // fadeout完了後にdisplay:noneにするが、
+        // もしその間に「タイトルへ戻る」が押されていたら何もしない
+        if(overlay.classList.contains('fadeout')) {
+            overlay.style.display = 'none';
+        }
+    }, 300);
     isLocked = false;
     pulse(20);
     showToast("始めよ。", 1000);
@@ -680,10 +703,19 @@
   document.getElementById("startHardBtn").onclick = () => {
       totalDeaths = 0;
       totalClears = 0;
+      streak = 0; // ゲーム開始時のみリセット
       startGame("HARD");
   };
-  document.getElementById("startPracticeBtn").onclick = () => startGame("PRACTICE");
-  backToStartBtn.onclick = () => showStartScreen();
+  document.getElementById("startPracticeBtn").onclick = () => {
+      streak = 0; // ゲーム開始時のみリセット
+      startGame("PRACTICE");
+  };
+
+  // 修正: プレイ中のタイトル戻り処理
+  backToStartBtn.onclick = () => {
+      if(timerInterval) clearInterval(timerInterval);
+      resetToTitle();
+  };
   
   manualStartBtn.onclick = () => finishMemorize();
 

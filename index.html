@@ -10,6 +10,7 @@
   <meta property="og:title" content="CRAB & CLICK：殻むき地獄" />
   <meta property="og:description" content="10秒記憶、即実践。カニを食べるための指先能力テスト。" />
   <meta property="og:type" content="website" />
+
   <title>CRAB & CLICK</title>
   <style>
     :root{
@@ -19,6 +20,7 @@
       --muted:#9a8f82;
       --accent:#ff8c00;
       --danger:#ff4d4d;
+      --blood:#8a0b0b;
     }
 
     body{
@@ -202,7 +204,6 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      /* backdrop-filter: blur(10px); ← これがあるとオーバーレイが濁るので削除 */
     }
 
     .board{
@@ -237,21 +238,71 @@
     @keyframes shake{ 0%,100%{transform:translateX(0)} 25%{transform:translateX(-4px)} 75%{transform:translateX(4px)} }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-    /* ★修正点: オーバーレイの背景透明度を調整し、文字の影を強化★ */
+    /* オーバーレイの調整 */
     .overlay{
       position:absolute; inset:0;
-      background: rgba(10, 12, 18, 0.4); /* ← 透明度を上げて背景を見やすく */
+      background: rgba(10, 12, 18, 0.5);
       display:flex; flex-direction: column; align-items:center; justify-content:center;
       text-align:center; padding:20px; z-index: 100; transition: opacity 0.3s;
-      text-shadow: 0 2px 10px rgba(0,0,0,0.8); /* 文字を読みやすくする影 */
+      text-shadow: 0 2px 10px rgba(0,0,0,0.8);
     }
+    /* ゲームオーバー時のスタイル */
+    .overlay.gameover {
+        background: rgba(30, 0, 0, 0.85);
+        border: 2px solid var(--blood);
+    }
+    .overlay.gameover h2 {
+        color: var(--danger) !important;
+        font-size: 32px;
+        letter-spacing: 0.1em;
+        text-shadow: 0 0 20px var(--blood);
+    }
+    .overlay.gameover p { color: #ffaaaa !important; }
+
+    /* 完全勝利時のスタイル */
+    .overlay.victory {
+        background: rgba(20, 10, 0, 0.9);
+        border: 2px solid var(--accent);
+        box-shadow: inset 0 0 50px rgba(255, 140, 0, 0.3);
+    }
+    .victory-img {
+        width: 80%;
+        max-width: 400px;
+        height: auto;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        border: 1px solid rgba(255,255,255,0.2);
+        animation: fadeIn 1s ease-out;
+    }
+    
     .overlay.fadeout { opacity: 0; pointer-events: none; }
+
+    #manualStartBtn {
+        margin-top: 24px;
+        padding: 10px 30px;
+        border: 1px solid var(--accent);
+        background: rgba(255, 140, 0, 0.2);
+        color: var(--accent);
+        border-radius: 4px;
+        font-family: serif;
+        font-size: 16px;
+        font-weight: bold;
+        cursor: pointer;
+        display: none;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    }
+    #manualStartBtn:active { transform: scale(0.95); background: rgba(255, 140, 0, 0.3); }
     
     #backToStartBtn {
         position: absolute; top: 10px; left: 10px; z-index: 110;
         padding: 8px 12px; font-size: 12px; border-radius: 4px;
         background: rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.2);
         color: var(--muted); cursor: pointer; font-family: serif;
+    }
+
+    .overlay-back-btn {
+        margin-top:30px; padding:12px 24px; border-radius:4px; font-family:serif; font-weight:bold; cursor:pointer;
     }
 
     .toast{
@@ -283,13 +334,18 @@
       <p class="game-subtitle">殻むき地獄</p>
       <div class="rule-box">
         <h2>📜 契約 (ルール)</h2>
-        <p>1. 開始後、<strong>10秒間</strong>だけ番号が開示される。</p>
-        <p>2. 番号消失後、<strong>1から順に</strong>殻を剥け(タップせよ)。</p>
-        <p>3. <strong>一度の過ちで即座に死(終了)</strong>となる。</p>
-        <p style="margin-top:12px; font-size:12px; opacity:0.7;">※本番では、稀に殻が抵抗する。</p>
+        <p>1. 開始後、番号が開示される。</p>
+        <p>2. 番号消失後、<strong>1から順に</strong>殻を剥け。</p>
+        <p>3. <strong>一度の過ちで即座に死</strong>となる。</p>
+        <p style="margin-top:12px; font-size:12px; opacity:0.7; line-height: 1.8;">
+            ※本番：10秒強制開始<br>
+            　敗北条件：<strong>累計5死</strong><br>
+            　勝利条件：<strong>累計3クリア</strong><br>
+            ※練習：無制限 (手動開始)
+        </p>
       </div>
       <div class="start-buttons">
-        <button class="btn primary" id="startHardBtn">契約を結ぶ (開始)</button>
+        <button class="btn primary" id="startHardBtn">契約を結ぶ (本番)</button>
         <button class="btn secondary" id="startPracticeBtn">仮契約 (練習)</button>
       </div>
     </section>
@@ -318,15 +374,7 @@
         <div class="board hidden" id="board"></div>
         <div class="overlay" id="overlay">
           <button id="backToStartBtn">← タイトルへ</button>
-          <div>
-            <h2 style="color:var(--accent); margin-bottom:10px; font-family: serif;">記憶せよ。</h2>
-            <p style="font-size:14px; color:#e6e6e6;">
-              残り <span id="memoTimer" style="font-weight:bold; font-size:24px; color:var(--accent);">10</span> 秒
-            </p>
-            <p style="font-size:12px; color:#889; margin-top:20px; font-family: serif;">
-                時が来れば、真実は闇に覆われる。
-            </p>
-          </div>
+          <div id="overlayContent"></div>
         </div>
         <div class="toast" id="toast"></div>
       </section>
@@ -338,6 +386,10 @@
   // ====== Config ======
   const PIECES = 9;
   const MEMO_SEC = 10;
+  // ★変更: 定数名を「連続」から「累計」へ変更
+  const MAX_TOTAL_DEATHS = 5; 
+  const REQUIRED_TOTAL_CLEARS = 3;
+  
   const CRAB_IMAGES = [
     "crab1.png", "crab2.png", "crab3.png",
     "crab4.png", "crab5.png", "crab6.png", 
@@ -349,6 +401,9 @@
   let nextIndex = 0;
   let deaths = 0;
   let streak = 0;
+  // ★変更: 変数名を「連続」から「累計」へ変更
+  let totalDeaths = 0;
+  let totalClears = 0;
   let mode = "-";
   let isLocked = false;
   let timerInterval = null;
@@ -358,9 +413,10 @@
   const gameScreen = document.getElementById("gameScreen");
   const board = document.getElementById("board");
   const overlay = document.getElementById("overlay");
+  const overlayContent = document.getElementById("overlayContent");
   const toast = document.getElementById("toast");
-  const memoTimerDisp = document.getElementById("memoTimer");
-  
+  const backToStartBtn = document.getElementById("backToStartBtn");
+
   const bgmTitle = document.getElementById("bgm-title");
   const bgmGame = document.getElementById("bgm-game");
   bgmTitle.volume = 0.3;
@@ -378,7 +434,7 @@
   const msg = {
     success: ["悪くない。だが満たされぬ。", "続けよ。終わりは遠い。", "集中が途切れれば死だ。"],
     fail: ["殻の勝利。", "貴公、まさか...", "YOU DIED (やり直し)"],
-    clear: ["見事だ。だが可食部は少ない。", "霧が晴れた。しかし腹は減る。", "契約完了。次のカニが待っている。"]
+    clear: ["見事だ。だが可食部は少ない。", "霧が晴れた。しかし腹は減る。", "次のカニが待っている。"]
   };
 
   // ====== Functions ======
@@ -400,7 +456,6 @@
     playAudio(bgmGame);
   }
 
-  // Haptic Feedback (確認済み)
   function pulse(pattern = 10) {
     if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(pattern);
   }
@@ -426,6 +481,49 @@
       clearInterval(timerInterval);
       switchToTitleBgm();
   }
+
+  // ゲームオーバー画面
+  function showGameOver() {
+    stopAudio(bgmGame);
+    pulse([200, 100, 200, 100, 500]);
+    
+    overlay.classList.add("gameover");
+    overlay.classList.remove("fadeout");
+    overlay.style.display = 'flex';
+    backToStartBtn.style.display = 'none';
+
+    overlayContent.innerHTML = `
+        <h2>YOU DIED</h2>
+        <p>貴公はカニの糧となった。<br>累計5度の過ちは、魂を食らい尽くした。</p>
+        <button class="overlay-back-btn" style="background:#8a0b0b; color:#fff; border:1px solid #ff4d4d;" onclick="resetToTitle('gameover')">タイトルへ戻る</button>
+    `;
+  }
+
+  // 完全勝利画面
+  function showVictory() {
+    stopAudio(bgmGame);
+    pulse([100, 50, 100, 50, 100, 50, 500]);
+    
+    overlay.classList.add("victory");
+    overlay.classList.remove("fadeout");
+    overlay.style.display = 'flex';
+    backToStartBtn.style.display = 'none';
+
+    overlayContent.innerHTML = `
+        <h2 style="color:var(--accent); font-size:32px; letter-spacing:0.1em;">COMPLETE VICTORY</h2>
+        <img src="victory.png" alt="Victory" class="victory-img">
+        <p>貴公は真のカニの王となった。<br>累計3度の試練を超え、至福の時が訪れる。</p>
+        <button class="overlay-back-btn" style="background:var(--accent); color:#000; border:none;" onclick="resetToTitle('victory')">タイトルへ戻る</button>
+    `;
+  }
+
+  window.resetToTitle = (overlayClass) => {
+      overlay.classList.remove(overlayClass);
+      totalDeaths = 0;
+      totalClears = 0;
+      showStartScreen();
+  };
+
 
   function setupBoard(){
     board.innerHTML = ""; board.classList.remove("hidden");
@@ -468,18 +566,46 @@
     checkAnswer(piece);
   }
 
+  // ★変更: 判定ロジックを累積ベースに変更
   function checkAnswer(piece){
     const id = parseInt(piece.dataset.id);
     const expected = order[nextIndex];
     if(id === expected){
+      // 正解
       pulse(8); piece.classList.add("ok"); nextIndex++; streak++; updateStats();
+      // ※正解してもtotalDeathsはリセットしない
+      
       if(nextIndex >= PIECES){
-        pulse([50, 50, 50]); showToast(pick(msg.clear), 3000); endGame(true);
+        // 1回クリア
+        totalClears++; // 累計クリア数を加算
+        
+        if(mode === "HARD" && totalClears >= REQUIRED_TOTAL_CLEARS){
+            // 累計3回クリア達成（完全勝利）
+            showVictory();
+        } else {
+            // 通常クリア（継続）
+            pulse([50, 50, 50]);
+            let clearMsg = pick(msg.clear);
+            if(mode === "HARD") clearMsg += ` (${totalClears}/${REQUIRED_TOTAL_CLEARS})`;
+            showToast(clearMsg, 3000);
+            endGame(true);
+        }
       } else {
         if(mode === "HARD" && nextIndex > 0 && nextIndex % 3 === 0) showToast(pick(msg.success), 800);
       }
     } else {
+      // 不正解
       pulse(100); piece.classList.add("bad"); deaths++; streak = 0; updateStats();
+      // ※不正解してもtotalClearsはリセットしない
+
+      if(mode === "HARD") {
+          totalDeaths++; // 累計死亡数を加算
+          if(totalDeaths >= MAX_TOTAL_DEATHS) {
+              showGameOver();
+              return;
+          }
+      }
+      
       showToast(pick(msg.fail), 2500); endGame(false);
     }
   }
@@ -489,28 +615,58 @@
     setTimeout(() => { startGame(mode); }, cleared ? 2500 : 2000);
   }
 
+  function showMemoScreen(timeLeftText, showManualBtn) {
+    overlay.classList.remove("fadeout");
+    overlay.classList.remove("gameover", "victory");
+    overlay.style.display = 'flex';
+    backToStartBtn.style.display = 'block';
+
+    let contentHtml = `
+        <h2 style="color:var(--accent); margin-bottom:10px; font-family: serif;">記憶せよ。</h2>
+        <p style="font-size:14px; color:#e6e6e6;">
+          残り <span id="memoTimer" style="font-weight:bold; font-size:24px; color:var(--accent);">${timeLeftText}</span>
+        </p>
+    `;
+    if(showManualBtn) {
+        contentHtml += `<button id="manualStartBtn">記憶した (開始)</button>`;
+    }
+    contentHtml += `
+        <p style="font-size:12px; color:#889; margin-top:20px; font-family: serif;">
+            時が来れば、真実は闇に覆われる。
+        </p>
+    `;
+    overlayContent.innerHTML = contentHtml;
+
+    if(showManualBtn) {
+        document.getElementById("manualStartBtn").onclick = () => finishMemorize();
+    }
+    return document.getElementById("memoTimer");
+  }
+
   function startGame(selectedMode){
     switchToGameBgm();
     mode = selectedMode; nextIndex = 0; isLocked = true; updateStats();
     showGameScreen();
-    
-    overlay.classList.remove("fadeout");
-    overlay.style.display = 'flex';
     setupBoard();
     
-    let timeLeft = MEMO_SEC;
-    memoTimerDisp.textContent = timeLeft;
-    
     if(timerInterval) clearInterval(timerInterval);
-    
-    timerInterval = setInterval(() => {
-        timeLeft--;
-        memoTimerDisp.textContent = timeLeft;
-        if(timeLeft <= 0){
-            clearInterval(timerInterval);
-            finishMemorize();
-        }
-    }, 1000);
+
+    let memoTimerDisp;
+    if (mode === "PRACTICE") {
+        memoTimerDisp = showMemoScreen("∞", true);
+    } else {
+        let timeLeft = MEMO_SEC;
+        memoTimerDisp = showMemoScreen(timeLeft + " 秒", false);
+
+        timerInterval = setInterval(() => {
+            timeLeft--;
+            memoTimerDisp.textContent = timeLeft + " 秒";
+            if(timeLeft <= 0){
+                clearInterval(timerInterval);
+                finishMemorize();
+            }
+        }, 1000);
+    }
   }
 
   function finishMemorize(){
@@ -523,10 +679,14 @@
   }
 
   // ====== Event Listeners ======
-  document.getElementById("startHardBtn").onclick = () => startGame("HARD");
+  document.getElementById("startHardBtn").onclick = () => {
+      totalDeaths = 0; // 本番開始時に累計リセット
+      totalClears = 0; // 本番開始時に累計リセット
+      startGame("HARD");
+  };
   document.getElementById("startPracticeBtn").onclick = () => startGame("PRACTICE");
-  document.getElementById("backToStartBtn").onclick = () => showStartScreen();
-
+  backToStartBtn.onclick = () => showStartScreen();
+  
   document.body.addEventListener('touchmove', function(e) {
       if (e.target.closest('.board')) e.preventDefault();
   }, { passive: false });
